@@ -1,653 +1,472 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
+
+<head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>SVG Multi-Search Highlighter (scroll-to-center + dedupe + sort + show match)</title>
     <style>
-      :root {
-        --accent: #0b5fff;
-      }
-
-      body {
-        font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
-        margin: 0;
-        display: grid;
-        grid-template-rows: auto 1fr;
-        height: 100vh;
-        color: #111;
-      }
-
-      header {
-        padding: 12px 16px;
-        border-bottom: 1px solid #ddd;
-        display: flex;
-        gap: 12px;
-        align-items: center;
-        flex-wrap: wrap;
-      }
-
-      header h1 {
-        font-size: 16px;
-        margin: 0 8px 0 0;
-        font-weight: 600;
-      }
-
-      label {
-        font-size: 13px;
-        display: inline-flex;
-        align-items: center;
-        gap: 6px;
-      }
-
-      input[type="text"],
-      input[type="url"] {
-        padding: 8px 10px;
-        font-size: 14px;
-        border: 1px solid #bbb;
-        border-radius: 6px;
-        min-width: 240px;
-      }
-
-      input[type="file"] {
-        font-size: 13px;
-      }
-
-      button {
-        padding: 8px 12px;
-        border: 1px solid var(--accent);
-        background: var(--accent);
-        color: #fff;
-        border-radius: 6px;
-        cursor: pointer;
-        font-size: 14px;
-      }
-
-      button.secondary {
-        background: #fff;
-        color: var(--accent);
-      }
-
-      button:disabled {
-        opacity: .5;
-        cursor: not-allowed;
-      }
-
-      .toolbar {
-        display: flex;
-        gap: 8px 12px;
-        align-items: center;
-        flex-wrap: wrap;
-      }
-
-      #main {
-        display: grid;
-        grid-template-columns: 320px 1fr;
-        min-height: 0;
-      }
-
-      #sidebar {
-        border-right: 1px solid #eee;
-        padding: 12px;
-        overflow: auto;
-      }
-
-      #viewer {
-        position: relative;
-        overflow: auto;
-        background: #fafafa;
-      }
-
-      /* top-left alignment so scrolling is predictable */
-      #viewer .stage {
-        width: 100%;
-        height: 100%;
-        display: grid;
-        place-items: start start;
-        padding: 12px;
-        box-sizing: border-box;
-      }
-
-      .info {
-        font-size: 12px;
-        color: #444;
-        margin-top: 8px;
-      }
-
-      .muted {
-        color: #666;
-      }
-
-      .result {
-        border: 1px solid #e3e3e3;
-        border-radius: 8px;
-        padding: 8px;
-        margin-bottom: 8px;
-        background: #fff;
-      }
-
-      .result h4 {
-        margin: 0 0 6px 0;
-        font-size: 13px;
-      }
-
-      .result code {
-        font-size: 12px;
-        background: #f6f6f6;
-        padding: 1px 4px;
-        border-radius: 4px;
-      }
-
-      .counts {
-        font-size: 13px;
-        margin-left: 6px;
-      }
-
-      .pill {
-        display: inline-block;
-        font-size: 11px;
-        padding: 2px 6px;
-        border-radius: 999px;
-        background: #eef2ff;
-        color: #2733ff;
-        margin-left: 6px;
-      }
-
-      .hint {
-        font-size: 12px;
-        color: #555;
-        margin-left: 8px;
-      }
+        :root { --accent:#0b5fff; }
+          body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; margin:0; display:grid; grid-template-rows:auto 1fr; height:100vh; color:#111; }
+          header { padding:12px 16px; border-bottom:1px solid #ddd; display:flex; gap:12px; align-items:center; flex-wrap:wrap; }
+          header h1 { font-size:16px; margin:0 8px 0 0; font-weight:600; }
+          label { font-size:13px; display:inline-flex; align-items:center; gap:6px; }
+          input[type="text"], input[type="url"] { padding:8px 10px; font-size:14px; border:1px solid #bbb; border-radius:6px; min-width:240px; }
+          input[type="file"] { font-size:13px; }
+          button { padding:8px 12px; border:1px solid var(--accent); background:var(--accent); color:#fff; border-radius:6px; cursor:pointer; font-size:14px; }
+          button.secondary { background:#fff; color:var(--accent); }
+          button:disabled { opacity:.5; cursor:not-allowed; }
+          .toolbar { display:flex; gap:8px 12px; align-items:center; flex-wrap:wrap; }
+          #main { display:grid; grid-template-columns:320px 1fr; min-height:0; }
+          #sidebar { border-right:1px solid #eee; padding:12px; overflow:auto; }
+          #viewer { position:relative; overflow:auto; background:#fafafa; }
+          /* top-left alignment so scrolling is predictable */
+          #viewer .stage { width:100%; height:100%; display:grid; place-items:start start; padding:12px; box-sizing:border-box; }
+          .info { font-size:12px; color:#444; margin-top:8px; }
+          .muted { color:#666; }
+          .result { border:1px solid #e3e3e3; border-radius:8px; padding:8px; margin-bottom:8px; background:#fff; }
+          .result h4 { margin:0 0 6px 0; font-size:13px; }
+          .result code { font-size:12px; background:#f6f6f6; padding:1px 4px; border-radius:4px; }
+          .counts { font-size:13px; margin-left:6px; }
+          .pill { display:inline-block; font-size:11px; padding:2px 6px; border-radius:999px; background:#eef2ff; color:#2733ff; margin-left:6px; }
+          .hint { font-size:12px; color:#555; margin-left:8px; }
     </style>
-  </head>
-  <body>
+</head>
+
+<body>
     <header>
-      <h1>SVG Multi-Search Highlighter</h1>
-      <div class="toolbar">
-        <label>Term <input id="term" type="text" placeholder="Search term (e.g., station, valve)" />
-        </label>
-        <label>
-          <input id="caseSensitive" type="checkbox" />Case sensitive </label>
-        <label>
-          <input id="regex" type="checkbox" />Regex </label>
-        <button id="searchBtn">Search & highlight</button>
-        <button id="clearBtn" class="secondary">Clear</button>
-        <span class="counts" id="counts"></span>
-      </div>
-      <div class="toolbar">
-        <label>Load SVG file <input id="fileInput" type="file" accept=".svg,image/svg+xml" />
-        </label>
-        <span class="hint">or URL →</span>
-        <input id="urlInput" type="url" placeholder="https://example.com/your.svg" />
-        <button id="loadUrlBtn" class="secondary">Load URL</button>
-        <span class="hint muted">Drag & drop an .svg anywhere in the window.</span>
-      </div>
-    </header>
-    <div id="main">
-      <aside id="sidebar">
-        <div class="info">Search scope:</div>
-        <label>
-          <input type="checkbox" class="scope" value="text" checked />SVG &lt;text&gt; content </label>
-        <br />
-        <label>
-          <input type="checkbox" class="scope" value="id" checked />id attribute </label>
-        <br />
-        <label>
-          <input type="checkbox" class="scope" value="class" checked />class attribute </label>
-        <br />
-        <label>
-          <input type="checkbox" class="scope" value="title" checked />&lt;title&gt; elements </label>
-        <br />
-        <label>
-          <input type="checkbox" class="scope" value="desc" />&lt;desc&gt; elements </label>
-        <br />
-        <label>
-          <input type="checkbox" class="scope" value="data-name" />data-name attribute </label>
-        <br />
-        <div class="info" style="margin-top:10px;">Actions on matches:</div>
-        <label>
-          <input id="outlineShapes" type="checkbox" checked />Outline matching non-text shapes </label>
-        <br />
-        <label>
-          <input id="highlightText" type="checkbox" checked />Highlight matching &lt;text&gt; nodes </label>
-        <br />
-        <label>
-          <input id="zoomAll" type="checkbox" />Center view on all matches </label>
-        <br />
-        <button id="resetView" class="secondary" style="margin-top:6px;">Reset view</button>
-        <hr />
-        <div class="info">Results:</div>
-        <div id="results"></div>
-      </aside>
-      <section id="viewer">
-        <div class="stage" id="stage">
-          <div class="info muted">Load an SVG to begin…</div>
+        <h1>SVG Multi-Search Highlighter</h1>
+        <div class="toolbar">
+            <label>Term
+                <input id="term" type="text" placeholder="Search term (e.g., station, valve)" />
+            </label>
+            <label>
+                <input id="caseSensitive" type="checkbox" />Case sensitive</label>
+            <label>
+                <input id="regex" type="checkbox" />Regex</label>
+            <button id="searchBtn">Search & highlight</button>
+            <button id="clearBtn" class="secondary">Clear</button>
+            <span class="counts" id="counts"></span>
         </div>
-      </section>
+        <div class="toolbar">
+            <label>Load SVG file
+                <input id="fileInput" type="file" accept=".svg,image/svg+xml" />
+            </label>
+            <span class="hint">or URL →</span>
+            <input id="urlInput" type="url" placeholder="https://example.com/your.svg" />
+            <button id="loadUrlBtn" class="secondary">Load URL</button>
+            <span class="hint muted">Drag & drop an .svg anywhere in the window.</span>
+        </div>
+    </header>
+
+    <div id="main">
+        <aside id="sidebar">
+            <div class="info">Search scope:</div>
+            <label>
+                <input type="checkbox" class="scope" value="text" checked />SVG &lt;text&gt; content</label>
+            <br />
+            <label>
+                <input type="checkbox" class="scope" value="id" checked />id attribute</label>
+            <br />
+            <label>
+                <input type="checkbox" class="scope" value="class" checked />class attribute</label>
+            <br />
+            <label>
+                <input type="checkbox" class="scope" value="title" checked />&lt;title&gt; elements</label>
+            <br />
+            <label>
+                <input type="checkbox" class="scope" value="desc" />&lt;desc&gt; elements</label>
+            <br />
+            <label>
+                <input type="checkbox" class="scope" value="data-name" />data-name attribute</label>
+            <br />
+            <div class="info" style="margin-top:10px;">Actions on matches:</div>
+            <label>
+                <input id="outlineShapes" type="checkbox" checked />Outline matching non-text shapes</label>
+            <br />
+            <label>
+                <input id="highlightText" type="checkbox" checked />Highlight matching &lt;text&gt; nodes</label>
+            <br />
+            <label>
+                <input id="zoomAll" type="checkbox" />Center view on all matches</label>
+            <br />
+            <button id="resetView" class="secondary" style="margin-top:6px;">Reset view</button>
+            <hr />
+            <div class="info">Results:</div>
+            <div id="results"></div>
+        </aside>
+
+        <section id="viewer">
+            <div class="stage" id="stage">
+                <div class="info muted">Load an SVG to begin…</div>
+            </div>
+        </section>
     </div>
+
     <script>
-      (function() {
-          const $ = (sel, root = document) => root.querySelector(sel);
-          const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
+        (function(){
+          const $  = (sel, root=document) => root.querySelector(sel);
+          const $$ = (sel, root=document) => Array.from(root.querySelectorAll(sel));
+        
           const stage = $('#stage');
           const viewer = $('#viewer');
-          const fileInput = $('#fileInput');
-          const urlInput = $('#urlInput');
-          const loadUrlBtn = $('#loadUrlBtn');
-          const termInput = $('#term');
+        
+          const fileInput   = $('#fileInput');
+          const urlInput    = $('#urlInput');
+          const loadUrlBtn  = $('#loadUrlBtn');
+          const termInput   = $('#term');
           const caseSensitive = $('#caseSensitive');
-          const regex = $('#regex');
-          const searchBtn = $('#searchBtn');
-          const clearBtn = $('#clearBtn');
-          const resultsEl = $('#results');
-          const countsEl = $('#counts');
-          const resetViewBtn = $('#resetView');
+          const regex       = $('#regex');
+          const searchBtn   = $('#searchBtn');
+          const clearBtn    = $('#clearBtn');
+          const resultsEl   = $('#results');
+          const countsEl    = $('#counts');
+          const resetViewBtn= $('#resetView');
           const zoomAllCheckbox = $('#zoomAll');
-          const outlineShapes = $('#outlineShapes');
-          const highlightText = $('#highlightText');
-
-          function setStageMessage(msg, cls = 'muted') {
-            stage.innerHTML = ' < div class = "info ' + cls + '" > ' + msg + ' < /div>';
+          const outlineShapes   = $('#outlineShapes');
+          const highlightText   = $('#highlightText');
+        
+          function setStageMessage(msg, cls='muted') {
+            stage.innerHTML = '<div class="info ' + cls + '">' + msg + '</div>';
           }
+        
           let currentSVG = null;
           let highlightLayer = null;
           let recentBoxes = []; // for optional recenter on resize
+        
           // ---------- Load & prepare ----------
           function parseSVGText(text) {
             stage.innerHTML = text;
             const svg = stage.querySelector('svg');
-            if (!svg) {
-              setStageMessage('This file does not contain a valid  < svg > root.
-                ', '
-                bad '); return null; }
-                // Keep intrinsic sizing; we'll scroll the container.
-                svg.style.width = 'auto'; svg.style.height = 'auto'; svg.style.maxWidth = 'none'; svg.style.maxHeight = 'none'; highlightLayer = document.createElementNS('http://www.w3.org/2000/svg', 'g'); highlightLayer.setAttribute('id', '__highlights__'); highlightLayer.setAttribute('pointer-events', 'none'); svg.appendChild(highlightLayer);
-                return svg;
-              }
-              async function loadFile(file) {
-                const text = await file.text();
-                const svg = parseSVGText(text);
-                if (svg) {
-                  currentSVG = svg;
-                  resultsEl.innerHTML = '';
-                  countsEl.textContent = '';
-                  viewer.scrollLeft = 0;
-                  viewer.scrollTop = 0;
-                }
-              }
-              async function loadURL(url) {
-                try {
-                  const res = await fetch(url);
-                  if (!res.ok) throw new Error('HTTP ' + res.status);
-                  const text = await res.text();
-                  const svg = parseSVGText(text);
-                  if (svg) {
-                    currentSVG = svg;
-                    resultsEl.innerHTML = '';
-                    countsEl.textContent = '';
-                    viewer.scrollLeft = 0;
-                    viewer.scrollTop = 0;
-                  }
-                } catch (e) {
-                  setStageMessage('Failed to load URL: ' + e.message, 'bad');
-                }
-              }
-
-              function clearHighlights() {
-                if (!currentSVG) return;
-                const layer = currentSVG.querySelector('#__highlights__');
-                if (layer) layer.innerHTML = '';
+            if (!svg) { setStageMessage('This file does not contain a valid <svg> root.', 'bad'); return null; }
+        
+            // Keep intrinsic sizing; we'll scroll the container.
+            svg.style.width = 'auto';
+            svg.style.height = 'auto';
+            svg.style.maxWidth = 'none';
+            svg.style.maxHeight = 'none';
+        
+            highlightLayer = document.createElementNS('http://www.w3.org/2000/svg','g');
+            highlightLayer.setAttribute('id','__highlights__');
+            highlightLayer.setAttribute('pointer-events','none');
+            svg.appendChild(highlightLayer);
+            return svg;
+          }
+        
+          async function loadFile(file){
+            const text = await file.text();
+            const svg = parseSVGText(text);
+            if (svg){
+              currentSVG = svg;
+              resultsEl.innerHTML = '';
+              countsEl.textContent = '';
+              viewer.scrollLeft = 0; viewer.scrollTop = 0;
+            }
+          }
+        
+          async function loadURL(url){
+            try{
+              const res = await fetch(url);
+              if (!res.ok) throw new Error('HTTP ' + res.status);
+              const text = await res.text();
+              const svg = parseSVGText(text);
+              if (svg){
+                currentSVG = svg;
                 resultsEl.innerHTML = '';
                 countsEl.textContent = '';
-                recentBoxes = [];
+                viewer.scrollLeft = 0; viewer.scrollTop = 0;
               }
-              // ---------- Geometry (transform-aware) ----------
-              function toRootPoint(svg, x, y, el) {
-                const p = new DOMPoint(x, y);
-                const elToScreen = el.getScreenCTM();
-                const rootToScreen = svg.getScreenCTM();
-                if (!elToScreen || !rootToScreen) return {
-                  x,
-                  y
-                };
-                const screenP = p.matrixTransform(elToScreen); // local -> viewport
-                const rootInv = rootToScreen.inverse(); // viewport -> root
-                const rootP = screenP.matrixTransform(rootInv);
-                return {
-                  x: rootP.x,
-                  y: rootP.y
-                };
-              }
-
-              function getBBoxInRoot(el, svg) {
-                let bb;
-                try {
-                  bb = el.getBBox();
-                } catch (e) {
-                  return null;
+            } catch(e){
+              setStageMessage('Failed to load URL: ' + e.message, 'bad');
+            }
+          }
+        
+          function clearHighlights(){
+            if (!currentSVG) return;
+            const layer = currentSVG.querySelector('#__highlights__');
+            if (layer) layer.innerHTML = '';
+            resultsEl.innerHTML = '';
+            countsEl.textContent = '';
+            recentBoxes = [];
+          }
+        
+          // ---------- Geometry (transform-aware) ----------
+          function toRootPoint(svg, x, y, el){
+            const p = new DOMPoint(x, y);
+            const elToScreen = el.getScreenCTM();
+            const rootToScreen = svg.getScreenCTM();
+            if (!elToScreen || !rootToScreen) return {x,y};
+            const screenP = p.matrixTransform(elToScreen);   // local -> viewport
+            const rootInv = rootToScreen.inverse();          // viewport -> root
+            const rootP = screenP.matrixTransform(rootInv);
+            return { x: rootP.x, y: rootP.y };
+          }
+        
+          function getBBoxInRoot(el, svg){
+            let bb;
+            try { bb = el.getBBox(); } catch(e){ return null; }
+            if (!bb) return null;
+            const corners = [
+              toRootPoint(svg, bb.x, bb.y, el),
+              toRootPoint(svg, bb.x + bb.width, bb.y, el),
+              toRootPoint(svg, bb.x + bb.width, bb.y + bb.height, el),
+              toRootPoint(svg, bb.x, bb.y + bb.height, el)
+            ];
+            const xs = corners.map(p => p.x);
+            const ys = corners.map(p => p.y);
+            const minX = Math.min(...xs), minY = Math.min(...ys);
+            const maxX = Math.max(...xs), maxY = Math.max(...ys);
+            return { x:minX, y:minY, width:maxX-minX, height:maxY-minY };
+          }
+        
+          function addRectHighlight(bbox, padding=3, isText=true){
+            if (!bbox) return null;
+            const r = document.createElementNS('http://www.w3.org/2000/svg','rect');
+            r.setAttribute('x', bbox.x - padding);
+            r.setAttribute('y', bbox.y - padding);
+            r.setAttribute('width',  Math.max(0, bbox.width  + 2*padding));
+            r.setAttribute('height', Math.max(0, bbox.height + 2*padding));
+            if (isText){
+              r.setAttribute('fill','yellow'); r.setAttribute('fill-opacity','0.35');
+              r.setAttribute('stroke','#000'); r.setAttribute('stroke-width','0.5'); r.setAttribute('stroke-opacity','0.6');
+            } else {
+              r.setAttribute('fill','none'); r.setAttribute('stroke','#ff0000');
+              r.setAttribute('stroke-width','2'); r.setAttribute('stroke-opacity','0.9'); r.setAttribute('stroke-dasharray','4 3');
+            }
+            highlightLayer.appendChild(r);
+            return r;
+          }
+        
+          // ---------- Scroll-to-center ----------
+          function centerBBoxInViewer(bbox){
+            if (!currentSVG || !bbox) return;
+            const rootToScreen = currentSVG.getScreenCTM();
+            if (!rootToScreen) return;
+        
+            const cx = bbox.x + bbox.width/2;
+            const cy = bbox.y + bbox.height/2;
+            const centerOnScreen = new DOMPoint(cx,cy).matrixTransform(rootToScreen);
+        
+            const vr = viewer.getBoundingClientRect();
+            const dx = (centerOnScreen.x - vr.left) - (vr.width  / 2);
+            const dy = (centerOnScreen.y - vr.top ) - (vr.height / 2);
+        
+            viewer.scrollLeft += dx;
+            viewer.scrollTop  += dy;
+          }
+        
+          function unionBBox(boxes){
+            let x1=boxes[0].x, y1=boxes[0].y;
+            let x2=boxes[0].x + boxes[0].width, y2=boxes[0].y + boxes[0].height;
+            for (let i=1;i<boxes.length;i++){
+              const b = boxes[i];
+              x1 = Math.min(x1, b.x); y1 = Math.min(y1, b.y);
+              x2 = Math.max(x2, b.x + b.width); y2 = Math.max(y2, b.y + b.height);
+            }
+            return { x:x1, y:y1, width:x2-x1, height:y2-y1 };
+          }
+        
+          function centerAll(boxes){
+            if (!boxes.length) return;
+            centerBBoxInViewer(unionBBox(boxes));
+          }
+        
+          // ---------- Helpers for dedupe + sort ----------
+          function roundedBBoxKey(bb, p=1){
+            const fx = (n) => (Number.isFinite(n) ? n.toFixed(p) : 'NaN');
+            return `${fx(bb.x)}|${fx(bb.y)}|${fx(bb.width)}|${fx(bb.height)}`;
+          }
+          function hypot2(x,y){ return x*x + y*y; }
+        
+          // ---------- Results UI ----------
+          function addResultEntry(entry){
+            const { labels, matches, node, bbox } = entry;
+            const div = document.createElement('div');
+            div.className = 'result';
+            const id = node.getAttribute('id') || '(no id)';
+            const name = node.tagName;
+            const meta = [];
+            if (node.hasAttribute('class')) meta.push('.' + node.getAttribute('class'));
+            if (node.hasAttribute('data-name')) meta.push('[data-name="' + node.getAttribute('data-name') + '"]');
+        
+            const labelHTML = labels.map(l => `<span class="pill">${l}</span>`).join(' ');
+            const matchHTML = matches.map(m => `<div class="muted" style="white-space:pre-wrap;">${m}</div>`).join('');
+        
+            div.innerHTML = `
+              <h4>${labelHTML} <span class="pill">${name}</span></h4>
+              ${matchHTML}
+              <div><code>#${id}</code></div>
+              <div class="muted">bbox: ${bbox ? `${bbox.x.toFixed(1)}, ${bbox.y.toFixed(1)}, ${bbox.width.toFixed(1)}×${bbox.height.toFixed(1)}` : 'n/a'}</div>
+              <div class="muted">${meta.join(' ')}</div>
+              <div style="margin-top:6px;"><button class="secondary">Center this</button></div>
+            `;
+            div.querySelector('button').addEventListener('click', () => { if (bbox) centerBBoxInViewer(bbox); });
+            resultsEl.appendChild(div);
+          }
+        
+          // ---------- Matcher ----------
+          function buildMatcher(term, isCaseSensitive, useRegex){
+            if (useRegex){
+              const flags = isCaseSensitive ? '' : 'i'; // avoid 'g' -> no lastIndex side effects
+              try {
+                const re = new RegExp(term, flags);
+                return { test: (s='') => re.test(s) };
+              } catch(e){ alert('Invalid regex: ' + e.message); return null; }
+            }
+            const t = isCaseSensitive ? term : term.toLowerCase();
+            return { test: (s='') => (isCaseSensitive ? s : s.toLowerCase()).includes(t) };
+          }
+        
+          // ---------- Search (dedupe + sort + show match text) ----------
+          function searchAndHighlight(){
+            if (!currentSVG){ alert('Load an SVG first.'); return; }
+            clearHighlights();
+        
+            const term = termInput.value;
+            if (!term){ alert('Enter a search term.'); return; }
+        
+            const scopes = $$('.scope').filter(cb => cb.checked).map(cb => cb.value);
+            const matcher = buildMatcher(term, caseSensitive.checked, regex.checked);
+            if (!matcher) return;
+        
+            const rawHits = [];
+            const boxesForCenter = [];
+        
+            // text content
+            if (scopes.includes('text')){
+              $$('text', currentSVG).forEach(t => {
+                const s = t.textContent || '';
+                if (s && matcher.test(s)){
+                  const bb = getBBoxInRoot(t, currentSVG);
+                  if (highlightText.checked) addRectHighlight(bb, 3, true);
+                  if (bb) boxesForCenter.push(bb);
+                  rawHits.push({ label:'text', match:s, node:t, bbox:bb });
                 }
-                if (!bb) return null;
-                const corners = [
-                  toRootPoint(svg, bb.x, bb.y, el),
-                  toRootPoint(svg, bb.x + bb.width, bb.y, el),
-                  toRootPoint(svg, bb.x + bb.width, bb.y + bb.height, el),
-                  toRootPoint(svg, bb.x, bb.y + bb.height, el)
-                ];
-                const xs = corners.map(p => p.x);
-                const ys = corners.map(p => p.y);
-                const minX = Math.min(...xs),
-                  minY = Math.min(...ys);
-                const maxX = Math.max(...xs),
-                  maxY = Math.max(...ys);
-                return {
-                  x: minX,
-                  y: minY,
-                  width: maxX - minX,
-                  height: maxY - minY
-                };
-              }
-
-              function addRectHighlight(bbox, padding = 3, isText = true) {
-                if (!bbox) return null;
-                const r = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-                r.setAttribute('x', bbox.x - padding);
-                r.setAttribute('y', bbox.y - padding);
-                r.setAttribute('width', Math.max(0, bbox.width + 2 * padding));
-                r.setAttribute('height', Math.max(0, bbox.height + 2 * padding));
-                if (isText) {
-                  r.setAttribute('fill', 'yellow');
-                  r.setAttribute('fill-opacity', '0.35');
-                  r.setAttribute('stroke', '#000');
-                  r.setAttribute('stroke-width', '0.5');
-                  r.setAttribute('stroke-opacity', '0.6');
-                } else {
-                  r.setAttribute('fill', 'none');
-                  r.setAttribute('stroke', '#ff0000');
-                  r.setAttribute('stroke-width', '2');
-                  r.setAttribute('stroke-opacity', '0.9');
-                  r.setAttribute('stroke-dasharray', '4 3');
-                }
-                highlightLayer.appendChild(r);
-                return r;
-              }
-              // ---------- Scroll-to-center ----------
-              function centerBBoxInViewer(bbox) {
-                if (!currentSVG || !bbox) return;
-                const rootToScreen = currentSVG.getScreenCTM();
-                if (!rootToScreen) return;
-                const cx = bbox.x + bbox.width / 2;
-                const cy = bbox.y + bbox.height / 2;
-                const centerOnScreen = new DOMPoint(cx, cy).matrixTransform(rootToScreen);
-                const vr = viewer.getBoundingClientRect();
-                const dx = (centerOnScreen.x - vr.left) - (vr.width / 2);
-                const dy = (centerOnScreen.y - vr.top) - (vr.height / 2);
-                viewer.scrollLeft += dx;
-                viewer.scrollTop += dy;
-              }
-
-              function unionBBox(boxes) {
-                let x1 = boxes[0].x,
-                  y1 = boxes[0].y;
-                let x2 = boxes[0].x + boxes[0].width,
-                  y2 = boxes[0].y + boxes[0].height;
-                for (let i = 1; i < boxes.length; i++) {
-                  const b = boxes[i];
-                  x1 = Math.min(x1, b.x);
-                  y1 = Math.min(y1, b.y);
-                  x2 = Math.max(x2, b.x + b.width);
-                  y2 = Math.max(y2, b.y + b.height);
-                }
-                return {
-                  x: x1,
-                  y: y1,
-                  width: x2 - x1,
-                  height: y2 - y1
-                };
-              }
-
-              function centerAll(boxes) {
-                if (!boxes.length) return;
-                centerBBoxInViewer(unionBBox(boxes));
-              }
-              // ---------- Helpers for dedupe + sort ----------
-              function roundedBBoxKey(bb, p = 1) {
-                const fx = (n) => (Number.isFinite(n) ? n.toFixed(p) : 'NaN');
-                return `${fx(bb.x)}|${fx(bb.y)}|${fx(bb.width)}|${fx(bb.height)}`;
-              }
-
-              function hypot2(x, y) {
-                return x * x + y * y;
-              }
-              // ---------- Results UI ----------
-              function addResultEntry(entry) {
-                const {
-                  labels,
-                  matches,
-                  node,
-                  bbox
-                } = entry;
-                const div = document.createElement('div');
-                div.className = 'result';
-                const id = node.getAttribute('id') || '(no id)';
-                const name = node.tagName;
-                const meta = [];
-                if (node.hasAttribute('class')) meta.push('.' + node.getAttribute('class'));
-                if (node.hasAttribute('data-name')) meta.push('[data-name="' + node.getAttribute('data-name') + '"]');
-                const labelHTML = labels.map(l => `
-					<span class="pill">${l}</span>`).join(' ');
-                const matchHTML = matches.map(m => `
-					<div class="muted" style="white-space:pre-wrap;">${m}</div>`).join('');
-                div.innerHTML = `
-      
-					<h4>${labelHTML} 
-						<span class="pill">${name}</span>
-					</h4>
-      ${matchHTML}
-      
-					<div>
-						<code>#${id}</code>
-					</div>
-					<div class="muted">bbox: ${bbox ? `${bbox.x.toFixed(1)}, ${bbox.y.toFixed(1)}, ${bbox.width.toFixed(1)}×${bbox.height.toFixed(1)}` : 'n/a'}</div>
-					<div class="muted">${meta.join(' ')}</div>
-					<div style="margin-top:6px;">
-						<button class="secondary">Center this</button>
-					</div>
-    `;
-                div.querySelector('button').addEventListener('click', () => {
-                  if (bbox) centerBBoxInViewer(bbox);
-                });
-                resultsEl.appendChild(div);
-              }
-              // ---------- Matcher ----------
-              function buildMatcher(term, isCaseSensitive, useRegex) {
-                if (useRegex) {
-                  const flags = isCaseSensitive ? '' : 'i'; // avoid 'g' -> no lastIndex side effects
-                  try {
-                    const re = new RegExp(term, flags);
-                    return {
-                      test: (s = '') => re.test(s)
-                    };
-                  } catch (e) {
-                    alert('Invalid regex: ' + e.message);
-                    return null;
-                  }
-                }
-                const t = isCaseSensitive ? term : term.toLowerCase();
-                return {
-                  test: (s = '') => (isCaseSensitive ? s : s.toLowerCase()).includes(t)
-                };
-              }
-              // ---------- Search (dedupe + sort + show match text) ----------
-              function searchAndHighlight() {
-                if (!currentSVG) {
-                  alert('Load an SVG first.');
-                  return;
-                }
-                clearHighlights();
-                const term = termInput.value;
-                if (!term) {
-                  alert('Enter a search term.');
-                  return;
-                }
-                const scopes = $$('.scope').filter(cb => cb.checked).map(cb => cb.value);
-                const matcher = buildMatcher(term, caseSensitive.checked, regex.checked);
-                if (!matcher) return;
-                const rawHits = [];
-                const boxesForCenter = [];
-                // text content
-                if (scopes.includes('text')) {
-                  $$('text', currentSVG).forEach(t => {
-                    const s = t.textContent || '';
-                    if (s && matcher.test(s)) {
-                      const bb = getBBoxInRoot(t, currentSVG);
-                      if (highlightText.checked) addRectHighlight(bb, 3, true);
-                      if (bb) boxesForCenter.push(bb);
-                      rawHits.push({
-                        label: 'text',
-                        match: s,
-                        node: t,
-                        bbox: bb
-                      });
-                    }
-                  });
-                }
-                // attributes
-                function scanByAttribute(attr) {
-                  $$('[' + CSS.escape(attr) + ']', currentSVG).forEach(n => {
-                    const val = n.getAttribute(attr) || '';
-                    if (val && matcher.test(val)) {
-                      const bb = getBBoxInRoot(n, currentSVG);
-                      if (outlineShapes.checked && bb) addRectHighlight(bb, 4, false);
-                      if (bb) boxesForCenter.push(bb);
-                      rawHits.push({
-                        label: attr,
-                        match: val,
-                        node: n,
-                        bbox: bb
-                      });
-                    }
-                  });
-                }
-                if (scopes.includes('id')) scanByAttribute('id');
-                if (scopes.includes('class')) scanByAttribute('class');
-                if (scopes.includes('data-name')) scanByAttribute('data-name');
-                // title/desc (match on parent element)
-                if (scopes.includes('title')) {
-                  $$('title', currentSVG).forEach(el => {
-                    const s = el.textContent || '';
-                    if (s && matcher.test(s)) {
-                      const parent = el.parentElement || el;
-                      const bb = getBBoxInRoot(parent, currentSVG);
-                      if (outlineShapes.checked && bb) addRectHighlight(bb, 4, false);
-                      if (bb) boxesForCenter.push(bb);
-                      rawHits.push({
-                        label: 'title',
-                        match: s,
-                        node: parent,
-                        bbox: bb
-                      });
-                    }
-                  });
-                }
-                if (scopes.includes('desc')) {
-                  $$('desc', currentSVG).forEach(el => {
-                    const s = el.textContent || '';
-                    if (s && matcher.test(s)) {
-                      const parent = el.parentElement || el;
-                      const bb = getBBoxInRoot(parent, currentSVG);
-                      if (outlineShapes.checked && bb) addRectHighlight(bb, 4, false);
-                      if (bb) boxesForCenter.push(bb);
-                      rawHits.push({
-                        label: 'desc',
-                        match: s,
-                        node: parent,
-                        bbox: bb
-                      });
-                    }
-                  });
-                }
-                // de-dupe by node (merge labels & matches)
-                const byNode = new Map();
-                for (const h of rawHits) {
-                  if (!h.bbox) continue;
-                  const rec = byNode.get(h.node) || {
-                    labels: new Set(),
-                    matches: new Set(),
-                    node: h.node,
-                    bbox: h.bbox
-                  };
-                  rec.labels.add(h.label);
-                  rec.matches.add(h.match);
-                  byNode.set(h.node, rec);
-                }
-                // de-dupe stacked clones by bbox bucket
-                const byBBox = new Map();
-                for (const rec of byNode.values()) {
-                  const key = roundedBBoxKey(rec.bbox, 1); // adjust precision if needed
-                  if (byBBox.has(key)) {
-                    const exist = byBBox.get(key);
-                    rec.labels.forEach(l => exist.labels.add(l));
-                    rec.matches.forEach(m => exist.matches.add(m));
-                  } else {
-                    byBBox.set(key, rec);
-                  }
-                }
-                // sort by distance to top-left of root userspace (use bbox's top-left)
-                const entries = Array.from(byBBox.values()).map(r => ({
-                  labels: Array.from(r.labels),
-                  matches: Array.from(r.matches),
-                  node: r.node,
-                  bbox: r.bbox,
-                  _d2: hypot2(r.bbox.x, r.bbox.y)
-                }));
-                entries.sort((a, b) => a._d2 - b._d2);
-                // Alternative row-major order:
-                // entries.sort((a,b) => a.bbox.y - b.bbox.y || a.bbox.x - b.bbox.x);
-                // render
-                resultsEl.innerHTML = '';
-                if (!entries.length) {
-                  resultsEl.innerHTML = ' < div class = "info" > No matches. < /div>';
-                  countsEl.textContent = '(0 matches)';
-                  recentBoxes = [];
-                } else {
-                  entries.forEach(addResultEntry);
-                  countsEl.textContent = `(${entries.length} matches)`;
-                  recentBoxes = entries.map(e => e.bbox).filter(Boolean);
-                  if (zoomAllCheckbox.checked && recentBoxes.length) centerAll(recentBoxes);
-                }
-              }
-              // ---------- Events ----------
-              fileInput.addEventListener('change', (e) => {
-                const f = e.target.files && e.target.files[0];
-                if (f) loadFile(f);
               });
-              loadUrlBtn.addEventListener('click', () => {
-                const url = urlInput.value.trim();
-                if (url) loadURL(url);
+            }
+        
+            // attributes
+            function scanByAttribute(attr){
+              $$('[' + CSS.escape(attr) + ']', currentSVG).forEach(n => {
+                const val = n.getAttribute(attr) || '';
+                if (val && matcher.test(val)){
+                  const bb = getBBoxInRoot(n, currentSVG);
+                  if (outlineShapes.checked && bb) addRectHighlight(bb, 4, false);
+                  if (bb) boxesForCenter.push(bb);
+                  rawHits.push({ label:attr, match:val, node:n, bbox:bb });
+                }
               });
-              window.addEventListener('dragover', e => e.preventDefault());
-              window.addEventListener('drop', (e) => {
-                e.preventDefault();
-                const f = e.dataTransfer.files && e.dataTransfer.files[0];
-                if (f && (f.type.includes('svg') || f.name.endsWith('.svg'))) loadFile(f);
+            }
+            if (scopes.includes('id')) scanByAttribute('id');
+            if (scopes.includes('class')) scanByAttribute('class');
+            if (scopes.includes('data-name')) scanByAttribute('data-name');
+        
+            // title/desc (match on parent element)
+            if (scopes.includes('title')){
+              $$('title', currentSVG).forEach(el => {
+                const s = el.textContent || '';
+                if (s && matcher.test(s)){
+                  const parent = el.parentElement || el;
+                  const bb = getBBoxInRoot(parent, currentSVG);
+                  if (outlineShapes.checked && bb) addRectHighlight(bb, 4, false);
+                  if (bb) boxesForCenter.push(bb);
+                  rawHits.push({ label:'title', match:s, node:parent, bbox:bb });
+                }
               });
-              searchBtn.addEventListener('click', searchAndHighlight);
-              clearBtn.addEventListener('click', clearHighlights);
-              resetViewBtn.addEventListener('click', () => {
-                viewer.scrollLeft = 0;
-                viewer.scrollTop = 0;
+            }
+            if (scopes.includes('desc')){
+              $$('desc', currentSVG).forEach(el => {
+                const s = el.textContent || '';
+                if (s && matcher.test(s)){
+                  const parent = el.parentElement || el;
+                  const bb = getBBoxInRoot(parent, currentSVG);
+                  if (outlineShapes.checked && bb) addRectHighlight(bb, 4, false);
+                  if (bb) boxesForCenter.push(bb);
+                  rawHits.push({ label:'desc', match:s, node:parent, bbox:bb });
+                }
               });
-              termInput.addEventListener('keydown', (e) => {
-                if (e.key === 'Enter') searchAndHighlight();
-              });
-              // Optional: keep centered on resize if "Center view on all matches" is checked
-              let resizeTO = null;
-              window.addEventListener('resize', () => {
-                if (!zoomAllCheckbox.checked || !recentBoxes.length) return;
-                clearTimeout(resizeTO);
-                resizeTO = setTimeout(() => centerAll(recentBoxes), 120);
-              });
-            })();
+            }
+        
+            // de-dupe by node (merge labels & matches)
+            const byNode = new Map();
+            for (const h of rawHits){
+              if (!h.bbox) continue;
+              const rec = byNode.get(h.node) || { labels:new Set(), matches:new Set(), node:h.node, bbox:h.bbox };
+              rec.labels.add(h.label);
+              rec.matches.add(h.match);
+              byNode.set(h.node, rec);
+            }
+        
+            // de-dupe stacked clones by bbox bucket
+            const byBBox = new Map();
+            for (const rec of byNode.values()){
+              const key = roundedBBoxKey(rec.bbox, 1); // adjust precision if needed
+              if (byBBox.has(key)){
+                const exist = byBBox.get(key);
+                rec.labels.forEach(l => exist.labels.add(l));
+                rec.matches.forEach(m => exist.matches.add(m));
+              } else {
+                byBBox.set(key, rec);
+              }
+            }
+        
+            // sort by distance to top-left of root userspace (use bbox's top-left)
+            const entries = Array.from(byBBox.values()).map(r => ({
+              labels: Array.from(r.labels),
+              matches: Array.from(r.matches),
+              node: r.node,
+              bbox: r.bbox,
+              _d2: hypot2(r.bbox.x, r.bbox.y)
+            }));
+            entries.sort((a,b) => a._d2 - b._d2);
+            // Alternative row-major order:
+            // entries.sort((a,b) => a.bbox.y - b.bbox.y || a.bbox.x - b.bbox.x);
+        
+            // render
+            resultsEl.innerHTML = '';
+            if (!entries.length){
+              resultsEl.innerHTML = '<div class="info">No matches.</div>';
+              countsEl.textContent = '(0 matches)';
+              recentBoxes = [];
+            } else {
+              entries.forEach(addResultEntry);
+              countsEl.textContent = `(${entries.length} matches)`;
+              recentBoxes = entries.map(e => e.bbox).filter(Boolean);
+              if (zoomAllCheckbox.checked && recentBoxes.length) centerAll(recentBoxes);
+            }
+          }
+        
+          // ---------- Events ----------
+          fileInput.addEventListener('change', (e) => {
+            const f = e.target.files && e.target.files[0];
+            if (f) loadFile(f);
+          });
+          loadUrlBtn.addEventListener('click', () => {
+            const url = urlInput.value.trim();
+            if (url) loadURL(url);
+          });
+          window.addEventListener('dragover', e => e.preventDefault());
+          window.addEventListener('drop', (e) => {
+            e.preventDefault();
+            const f = e.dataTransfer.files && e.dataTransfer.files[0];
+            if (f && (f.type.includes('svg') || f.name.endsWith('.svg'))) loadFile(f);
+          });
+        
+          searchBtn.addEventListener('click', searchAndHighlight);
+          clearBtn.addEventListener('click', clearHighlights);
+          resetViewBtn.addEventListener('click', () => { viewer.scrollLeft = 0; viewer.scrollTop = 0; });
+          termInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') searchAndHighlight(); });
+        
+          // Optional: keep centered on resize if "Center view on all matches" is checked
+          let resizeTO=null;
+          window.addEventListener('resize', () => {
+            if (!zoomAllCheckbox.checked || !recentBoxes.length) return;
+            clearTimeout(resizeTO);
+            resizeTO = setTimeout(() => centerAll(recentBoxes), 120);
+          });
+        
+        })();
     </script>
-  </body>
+</body>
+
 </html>
